@@ -16,6 +16,12 @@ import re
 from ytdl import DownloadQueueNotifier, DownloadQueue
 from yt_dlp.version import __version__ as yt_dlp_version
 
+import datetime
+import multiprocessing
+
+with open("launch_log.txt", "a") as f:
+    f.write(f"MAIN LAUNCHED at {datetime.datetime.now()}\n")
+
 log = logging.getLogger('main')
 
 class Config:
@@ -110,7 +116,8 @@ routes = web.RouteTableDef()
 class Notifier(DownloadQueueNotifier):
     async def added(self, dl):
         log.info(f"Notifier: Download added - {dl.title}")
-        await sio.emit('added', serializer.encode(dl))
+        # await sio.emit('added', serializer.encode(dl))
+        log.info("Emit skipped for debug")
 
     async def updated(self, dl):
         log.info(f"Notifier: Download updated - {dl.title}")
@@ -330,12 +337,44 @@ def isAccessLogEnabled():
         return None
 
 if __name__ == '__main__':
-    logging.basicConfig(level=parseLogLevel(config.LOGLEVEL))
-    log.info(f"Listening on {config.HOST}:{config.PORT}")
+    try:
+        multiprocessing.freeze_support()
+        logging.basicConfig(level=parseLogLevel(config.LOGLEVEL))
+        log.info(f"Starting app on {config.HOST}:{config.PORT}")
 
-    if config.HTTPS:
-        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile=config.CERTFILE, keyfile=config.KEYFILE)
-        web.run_app(app, host=config.HOST, port=int(config.PORT), reuse_port=supports_reuse_port(), ssl_context=ssl_context, access_log=isAccessLogEnabled())
-    else:
-        web.run_app(app, host=config.HOST, port=int(config.PORT), reuse_port=supports_reuse_port(), access_log=isAccessLogEnabled())
+        # Protección ante errores de inicialización
+        async def safe_initialize(app):
+            try:
+                await dqueue.initialize()
+            except Exception as e:
+                log.exception("Error during dqueue.initialize()")
+                raise
+
+        app.on_startup.clear()
+        app.on_startup.append(safe_initialize)
+
+        if config.HTTPS:
+            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_context.load_cert_chain(certfile=config.CERTFILE, keyfile=config.KEYFILE)
+            web.run_app(
+                app,
+                host=config.HOST,
+                port=int(config.PORT),
+                reuse_port=supports_reuse_port(),
+                ssl_context=ssl_context,
+                access_log=isAccessLogEnabled()
+            )
+        else:
+            web.run_app(
+                app,
+                host=config.HOST,
+                port=int(config.PORT),
+                reuse_port=supports_reuse_port(),
+                access_log=isAccessLogEnabled()
+            )
+
+    except Exception as e:
+        log.exception("Unexpected fatal error in main application loop")
+        with open("launch_error.txt", "a") as f:
+            f.write(f"{datetime.datetime.now()} - Fatal error: {e}\n")
+        sys.exit(1)

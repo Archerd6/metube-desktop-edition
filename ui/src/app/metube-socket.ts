@@ -4,8 +4,12 @@ import { Socket } from 'ngx-socket-io';
 @Injectable()
 export class MeTubeSocket extends Socket {
   constructor() {
-    const path =
-      document.location.pathname.replace(/share-target/, '') + 'socket.io';
-    super({ url: '', options: { path } });
+    super({
+      url: 'http://localhost:8081', // Servidor Python
+      options: {
+        path: '/socket.io',
+        transports: ['websocket'], // Opcional
+      },
+    });
   }
 }
