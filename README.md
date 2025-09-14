@@ -6,7 +6,7 @@ Make sure you have node.js and Python 3.13 installed.
 # Install python dependencies
 pip install -r .\requirements.txt
 
-# Install Angular and build the UI
+# Install node dependencies
 cd metube/ui
 npm install
 ```
@@ -15,7 +15,7 @@ npm install
 # Run python
 python3 app/main.py
 
-# Run electron
+# Run electron interface
 npm run build && electron .
 ```
 
@@ -23,7 +23,7 @@ npm run build && electron .
 # Build python
 pyinstaller --onefile --hidden-import=engineio.async_drivers.aiohttp app/main.py
 
-# Build electron
+# Build electron interface
 npm run build && electron-builder
 ```
 
